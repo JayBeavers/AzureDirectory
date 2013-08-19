@@ -14,7 +14,6 @@ namespace Lucene.Net.Store.Azure
     {
         private readonly string _catalog;
         private CloudBlobClient _blobClient;
-        private CloudBlobContainer _blobContainer;
         private Directory _cacheDirectory;
 
         /// <summary>
@@ -34,13 +33,7 @@ namespace Lucene.Net.Store.Azure
             _initCacheDirectory(cacheDirectory);
         }
 
-        public CloudBlobContainer BlobContainer
-        {
-            get
-            {
-                return _blobContainer;
-            }
-        }
+        public CloudBlobContainer BlobContainer { get; private set; }
 
         public void ClearCache()
         {
@@ -89,16 +82,16 @@ namespace Lucene.Net.Store.Azure
 
         public void CreateContainer()
         {
-            _blobContainer = _blobClient.GetContainerReference(_catalog);
+            BlobContainer = _blobClient.GetContainerReference(_catalog);
 
             // create it if it does not exist
-            _blobContainer.CreateIfNotExists();
+            BlobContainer.CreateIfNotExists();
         }
 
         /// <summary>Returns an array of strings, one for each file in the directory. </summary>
         public override String[] listAll()
         {
-            var results = from blob in _blobContainer.ListBlobs()
+            var results = from blob in BlobContainer.ListBlobs()
                           select blob.Uri.AbsolutePath.Substring(blob.Uri.AbsolutePath.LastIndexOf('/') + 1);
             return results.ToArray();
         }
@@ -109,7 +102,7 @@ namespace Lucene.Net.Store.Azure
             // this always comes from the server
             try
             {
-                var blob = _blobContainer.GetBlockBlobReference(name);
+                var blob = BlobContainer.GetBlockBlobReference(name);
                 blob.FetchAttributes();
                 return true;
             }
@@ -122,9 +115,9 @@ namespace Lucene.Net.Store.Azure
         /// <summary>Removes an existing file in the directory. </summary>
         public override void deleteFile(String name)
         {
-            var blob = _blobContainer.GetBlockBlobReference(name);
+            var blob = BlobContainer.GetBlockBlobReference(name);
             blob.DeleteIfExists();
-            Debug.WriteLine("DELETE {0}/{1}", _blobContainer.Uri, name);
+            Debug.WriteLine("DELETE {0}/{1}", BlobContainer.Uri, name);
 
             if (_cacheDirectory.fileExists(name + ".blob"))
                 _cacheDirectory.deleteFile(name + ".blob");
@@ -136,7 +129,7 @@ namespace Lucene.Net.Store.Azure
         /// <summary>Returns the length of a file in the directory. </summary>
         public override long fileLength(String name)
         {
-            var blob = _blobContainer.GetBlockBlobReference(name);
+            var blob = BlobContainer.GetBlockBlobReference(name);
             blob.FetchAttributes();
 
             // index files may be compressed so the actual length is stored in metatdata
@@ -154,7 +147,7 @@ namespace Lucene.Net.Store.Azure
         /// </summary>
         public override IndexOutput createOutput(string name, IOContext ioc)
         {
-            var blob = _blobContainer.GetBlockBlobReference(name);
+            var blob = BlobContainer.GetBlockBlobReference(name);
             return new AzureIndexOutput(this, blob);
         }
 
@@ -163,7 +156,7 @@ namespace Lucene.Net.Store.Azure
         {
             try
             {
-                var blob = _blobContainer.GetBlockBlobReference(name);
+                var blob = BlobContainer.GetBlockBlobReference(name);
                 blob.FetchAttributes();
                 var input = new AzureIndexInput(this, blob);
                 return input;
@@ -204,7 +197,7 @@ namespace Lucene.Net.Store.Azure
         /// <summary>Closes the store. </summary>
         public override void close()
         {
-            _blobContainer = null;
+            BlobContainer = null;
             _blobClient = null;
         }
 

@@ -127,8 +127,7 @@ namespace Lucene.Net.Store.Azure
             try
             {
                 _fileMutex.WaitOne();
-                var input = new AzureIndexInput(this);
-                clone = input;
+                clone = new AzureIndexInput(this);
             }
             catch (Exception err)
             {
@@ -138,6 +137,7 @@ namespace Lucene.Net.Store.Azure
             {
                 _fileMutex.ReleaseMutex();
             }
+
             Debug.Assert(clone != null);
             return clone;
         }

@@ -28,7 +28,7 @@ namespace Lucene.Net.Store.Azure
             var blob = _azureDirectory.BlobContainer.GetBlobReferenceFromServer(_lockFile);
             try
             {
-                Debug.Print("IsLockeD() : {0}", _leaseid);
+                Debug.Print("IsLocked() : {0}", _leaseid);
                 if (String.IsNullOrEmpty(_leaseid))
                 {
                     var tempLease = blob.AcquireLease(TimeSpan.FromSeconds(60), _leaseid);
@@ -47,11 +47,7 @@ namespace Lucene.Net.Store.Azure
                 if (_handleWebException(blob, webErr))
                     return isLocked();
             }
-            /*catch (StorageClientException err)
-            {
-                if (_handleStorageClientException(blob, err))
-                    return IsLocked();
-            }*/
+
             _leaseid = null;
             return false;
         }
