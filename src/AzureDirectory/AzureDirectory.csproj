@@ -88,9 +88,7 @@
     <Compile Include="StreamOutput.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
     <None Include="Sample App.config" />
-    <None Include="Lucene.Net.Store.Azure.nuspec" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\Readme.html">

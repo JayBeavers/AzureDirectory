@@ -17,35 +17,13 @@ namespace Lucene.Net.Store.Azure
         private CloudBlobContainer _blobContainer;
         private Directory _cacheDirectory;
 
-        #region CTOR
-        public AzureDirectory(CloudStorageAccount storageAccount) :
-            this(storageAccount, null, null)
-        {
-        }
-
-        /// <summary>
-        /// Create AzureDirectory
-        /// </summary>
-        /// <param name="storageAccount">staorage account to use</param>
-        /// <param name="catalog">name of catalog (folder in blob storage)</param>
-        /// <remarks>Default local cache is to use file system in user/appdata/AzureDirectory/Catalog</remarks>
-        public AzureDirectory(
-            CloudStorageAccount storageAccount,
-            string catalog)
-            : this(storageAccount, catalog, null)
-        {
-        }
-
         /// <summary>
         /// Create an AzureDirectory
         /// </summary>
         /// <param name="storageAccount">storage account to use</param>
         /// <param name="catalog">name of catalog (folder in blob storage)</param>
         /// <param name="cacheDirectory">local Directory object to use for local cache</param>
-        public AzureDirectory(
-            CloudStorageAccount storageAccount,
-            string catalog,
-            Directory cacheDirectory)
+        public AzureDirectory(CloudStorageAccount storageAccount, string catalog = null, Directory cacheDirectory = null)
         {
             if (storageAccount == null)
                 throw new ArgumentNullException("storageAccount");
@@ -64,13 +42,6 @@ namespace Lucene.Net.Store.Azure
             }
         }
 
-#if COMPRESSBLOBS
-        public bool CompressBlobs
-        {
-            get;
-            set;
-        }
-#endif
         public void ClearCache()
         {
             foreach (string file in _cacheDirectory.listAll())
@@ -90,14 +61,9 @@ namespace Lucene.Net.Store.Azure
                 _cacheDirectory = value;
             }
         }
-        #endregion
 
-        #region internal methods
         private void _initCacheDirectory(Directory cacheDirectory)
         {
-#if COMPRESSBLOBS
-            CompressBlobs = true;
-#endif
             if (cacheDirectory != null)
             {
                 // save it off
@@ -128,9 +94,7 @@ namespace Lucene.Net.Store.Azure
             // create it if it does not exist
             _blobContainer.CreateIfNotExists();
         }
-        #endregion
 
-        #region DIRECTORY METHODS
         /// <summary>Returns an array of strings, one for each file in the directory. </summary>
         public override String[] listAll()
         {
@@ -168,33 +132,6 @@ namespace Lucene.Net.Store.Azure
             if (_cacheDirectory.fileExists(name))
                 _cacheDirectory.deleteFile(name);
         }
-
-        /*
-        /// <summary>Renames an existing file in the directory.
-        /// If a file already exists with the new name, then it is replaced.
-        /// This replacement should be atomic. 
-        /// </summary>
-        public void RenameFile(System.String from, System.String to)
-        {
-            try
-            {
-                var blobFrom = _blobContainer.GetBlockBlobReference(from);
-                var blobTo = _blobContainer.GetBlockBlobReference(to);
-                blobTo.CopyFromBlob(blobFrom);
-                blobFrom.DeleteIfExists();
-
-                // we delete and force a redownload, since we can't do this in an atomic way
-                if (_cacheDirectory.FileExists(from))
-                    _cacheDirectory.RenameFile(from, to);
-
-                // drop old cached data as it's wrong now
-                if (_cacheDirectory.FileExists(from + ".blob"))
-                    _cacheDirectory.DeleteFile(from + ".blob");
-            }
-            catch
-            {
-            }
-        }*/
 
         /// <summary>Returns the length of a file in the directory. </summary>
         public override long fileLength(String name)
@@ -270,35 +207,7 @@ namespace Lucene.Net.Store.Azure
             _blobContainer = null;
             _blobClient = null;
         }
-        #endregion
 
-        #region Azure specific methods
-#if COMPRESSBLOBS
-        public virtual bool ShouldCompressFile(string path)
-        {
-            if (!CompressBlobs)
-                return false;
-
-            string ext = System.IO.Path.GetExtension(path);
-            switch (ext)
-            {
-                case ".cfs":
-                case ".fdt":
-                case ".fdx":
-                case ".frq":
-                case ".tis":
-                case ".tii":
-                case ".nrm":
-                case ".tvx":
-                case ".tvd":
-                case ".tvf":
-                case ".prx":
-                    return true;
-                default:
-                    return false;
-            }
-        }
-#endif
         public StreamInput OpenCachedInputAsStream(string name)
         {
             return new StreamInput(CacheDirectory.openInput(name, IOContext.DEFAULT));
@@ -308,8 +217,6 @@ namespace Lucene.Net.Store.Azure
         {
             return new StreamOutput(CacheDirectory.createOutput(name, IOContext.DEFAULT));
         }
-
-        #endregion
 
         public override void sync(java.util.Collection c)
         {

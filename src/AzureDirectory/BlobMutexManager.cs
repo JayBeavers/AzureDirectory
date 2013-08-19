@@ -35,7 +35,5 @@ namespace Lucene.Net.Store.Azure
                 return Mutex.OpenExisting(mutexName);
             }
         }
-
     }
 }
-

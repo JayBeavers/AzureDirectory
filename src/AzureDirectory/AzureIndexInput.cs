@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO.Compression;
 using System.Threading;
 using Microsoft.WindowsAzure.Storage.Blob;
 using org.apache.lucene.store;
@@ -26,11 +25,9 @@ namespace Lucene.Net.Store.Azure
         {
             _name = blob.Uri.Segments[blob.Uri.Segments.Length - 1];
 
-#if FULLDEBUG
-            Debug.WriteLine(String.Format("opening {0} ", _name));
-#endif
             _fileMutex = BlobMutexManager.GrabMutex(_name);
             _fileMutex.WaitOne();
+
             try
             {
                 _azureDirectory = azuredirectory;
@@ -38,54 +35,15 @@ namespace Lucene.Net.Store.Azure
                 _blob = blob;
 
                 string fileName = _name;
+                StreamOutput fileStream = _azureDirectory.CreateCachedOutputAsStream(fileName);
 
-#if COMPRESSBLOBS
-                if (_azureDirectory.ShouldCompressFile(_name))
-                {
-                    // then we will get it fresh into local deflatedName 
-                    // StreamOutput deflatedStream = new StreamOutput(CacheDirectory.CreateOutput(deflatedName));
-                    var deflatedStream = new System.IO.MemoryStream();
+                // get the blob
+                _blob.DownloadToStream(fileStream);
 
-                    // get the deflated blob
-                    _blob.DownloadToStream(deflatedStream);
+                fileStream.Flush();
+                Debug.WriteLine("GET {0} RETREIVED {1} bytes", _name, fileStream.Length);
 
-                    Debug.WriteLine("GET {0} RETREIVED {1} bytes", _name, deflatedStream.Length);
-
-                    // seek back to begininng
-                    deflatedStream.Seek(0, System.IO.SeekOrigin.Begin);
-
-                    // open output file for uncompressed contents
-                    StreamOutput fileStream = _azureDirectory.CreateCachedOutputAsStream(fileName);
-
-                    // create decompressor
-                    var decompressor = new DeflateStream(deflatedStream, CompressionMode.Decompress);
-
-                    var bytes = new byte[65535];
-                    int nRead;
-                    do
-                    {
-                        nRead = decompressor.Read(bytes, 0, 65535);
-                        if (nRead > 0)
-                            fileStream.Write(bytes, 0, nRead);
-                    } while (nRead == 65535);
-                    decompressor.Close(); // this should close the deflatedFileStream too
-
-                    fileStream.Close();
-
-                }
-                else
-#endif
-                {
-                    StreamOutput fileStream = _azureDirectory.CreateCachedOutputAsStream(fileName);
-
-                    // get the blob
-                    _blob.DownloadToStream(fileStream);
-
-                    fileStream.Flush();
-                    Debug.WriteLine("GET {0} RETREIVED {1} bytes", _name, fileStream.Length);
-
-                    fileStream.Close();
-                }
+                fileStream.Close();
 
                 // and open it as an input 
                 _indexInput = CacheDirectory.openInput(fileName, IOContext.DEFAULT);
@@ -103,9 +61,6 @@ namespace Lucene.Net.Store.Azure
 
             try
             {
-#if FULLDEBUG
-                Debug.WriteLine(String.Format("Creating clone for {0}", cloneInput._name));
-#endif
                 _azureDirectory = cloneInput._azureDirectory;
                 _blobContainer = cloneInput._blobContainer;
                 _blob = cloneInput._blob;
@@ -148,9 +103,6 @@ namespace Lucene.Net.Store.Azure
             _fileMutex.WaitOne();
             try
             {
-#if FULLDEBUG
-                Debug.WriteLine(String.Format("CLOSED READSTREAM local {0}", _name));
-#endif
                 _indexInput.close();
                 _indexInput = null;
                 _azureDirectory = null;

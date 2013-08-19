@@ -23,7 +23,6 @@ namespace Lucene.Net.Store.Azure
             _azureDirectory = directory;
         }
 
-        #region Lock methods
         override public bool isLocked()
         {
             var blob = _azureDirectory.BlobContainer.GetBlobReferenceFromServer(_lockFile);
@@ -87,11 +86,7 @@ namespace Lucene.Net.Store.Azure
                 if (_handleWebException(blob, webErr))
                     return obtain();
             }
-            /*catch (StorageClientException err)
-            {
-                if (_handleStorageClientException(blob, err))
-                    return Obtain();
-            }*/
+
             return false;
         }
 
@@ -122,7 +117,6 @@ namespace Lucene.Net.Store.Azure
                 _leaseid = null;
             }
         }
-        #endregion
 
         public void BreakLock()
         {
@@ -159,28 +153,5 @@ namespace Lucene.Net.Store.Azure
             }
             return false;
         }
-
-        /*
-        private bool _handleStorageClientException(ICloudBlob blob, StorageClientException err)
-        {
-            switch (err.ErrorCode)
-            {
-                case StorageErrorCode.ResourceNotFound:
-                    blob.UploadText(_lockFile);
-                    return true;
-
-                case StorageErrorCode.ContainerNotFound:
-                    // container is missing, we should create it.
-                    _azureDirectory.BlobContainer.Delete();
-                    _azureDirectory.CreateContainer();
-                    return true;
-
-                default:
-                    return false;
-            }
-        }*/
-
     }
-
 }
-

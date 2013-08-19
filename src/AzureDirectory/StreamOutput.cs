@@ -92,4 +92,3 @@ namespace Lucene.Net.Store.Azure
         }
     }
 }
-

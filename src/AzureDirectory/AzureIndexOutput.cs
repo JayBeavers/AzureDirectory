@@ -2,7 +2,6 @@
 using System.Globalization;
 using System.IO;
 using System.Diagnostics;
-using System.IO.Compression;
 using System.Threading;
 using Microsoft.WindowsAzure.Storage.Blob;
 using org.apache.lucene.store;
@@ -60,47 +59,7 @@ namespace Lucene.Net.Store.Azure
                 long originalLength = _indexOutput.length();
                 _indexOutput.close();
 
-                Stream blobStream;
-#if COMPRESSBLOBS
-
-                // optionally put a compressor around the blob stream
-                if (_azureDirectory.ShouldCompressFile(_name))
-                {
-                    // unfortunately, deflate stream doesn't allow seek, and we need a seekable stream
-                    // to pass to the blob storage stuff, so we compress into a memory stream
-                    var compressedStream = new MemoryStream();
-
-                    try
-                    {
-                        IndexInput indexInput = CacheDirectory.openInput(fileName, IOContext.DEFAULT);
-                        using (var compressor = new DeflateStream(compressedStream, CompressionMode.Compress, true))
-                        {
-                            // compress to compressedOutputStream
-                            var bytes = new byte[indexInput.length()];
-                            indexInput.readBytes(bytes, 0, bytes.Length);
-                            compressor.Write(bytes, 0, bytes.Length);
-                        }
-                        indexInput.close();
-
-                        // seek back to beginning of comrpessed stream
-                        compressedStream.Seek(0, SeekOrigin.Begin);
-
-                        Debug.WriteLine("COMPRESSED {0} -> {1} {2}% to {3}", originalLength, compressedStream.Length, ((float)compressedStream.Length / (float)originalLength) * 100, _name);
-                    }
-                    catch
-                    {
-                        // release the compressed stream resources if an error occurs
-                        compressedStream.Dispose();
-                        throw;
-                    }
-
-                    blobStream = compressedStream;
-                }
-                else
-#endif
-                {
-                    blobStream = new StreamInput(CacheDirectory.openInput(fileName, IOContext.DEFAULT));
-                }
+                Stream blobStream = new StreamInput(CacheDirectory.openInput(fileName, IOContext.DEFAULT));
 
                 try
                 {
@@ -118,9 +77,6 @@ namespace Lucene.Net.Store.Azure
                     blobStream.Dispose();
                 }
 
-#if FULLDEBUG
-                Debug.WriteLine(string.Format("CLOSED WRITESTREAM {0}", _name));
-#endif
                 // clean up
                 _indexOutput = null;
                 _blob = null;
@@ -164,4 +120,3 @@ namespace Lucene.Net.Store.Azure
         }
     }
 }
-

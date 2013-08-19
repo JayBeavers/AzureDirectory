@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using Microsoft.WindowsAzure;
 using System.Diagnostics;
-using System.ComponentModel;
 using Lucene.Net.Store.Azure;
 using Microsoft.WindowsAzure.Storage;
 using org.apache.lucene.analysis.standard;
@@ -19,17 +17,17 @@ namespace TestApp
 {
     class Program
     {
-        public static bool fExit = false;
+        public static bool FExit = false;
 
-        static void Main(string[] args)
+        static void Main()
         {
 
             // default AzureDirectory stores cache in local temp folder
-            CloudStorageAccount cloudStorageAccount = CloudStorageAccount.DevelopmentStorageAccount;
+            CloudStorageAccount cloudStorageAccount;
             CloudStorageAccount.TryParse(CloudConfigurationManager.GetSetting("blobStorage"), out cloudStorageAccount);
             //AzureDirectory azureDirectory = new AzureDirectory(cloudStorageAccount, "TestTest", new RAMDirectory());
             //AzureDirectory azureDirectory = new AzureDirectory(cloudStorageAccount, "TestTest", FSDirectory.Open(@"c:\test"));
-            AzureDirectory azureDirectory = new AzureDirectory(cloudStorageAccount, "TestTest" /* default is FSDirectory.Open(@"%temp%/AzureDirectory/TestTest"); */ );
+            var azureDirectory = new AzureDirectory(cloudStorageAccount, "TestTest" /* default is FSDirectory.Open(@"%temp%/AzureDirectory/TestTest"); */ );
 
             IndexWriter indexWriter = null;
             while (indexWriter == null)
@@ -44,7 +42,7 @@ namespace TestApp
                     Console.WriteLine("Lock is taken, waiting for timeout...");
                     Thread.Sleep(1000);
                 }
-            };
+            }
             Console.WriteLine("IndexWriter lock obtained, this process has exclusive write access to index");
             //indexWriter.setRAMBufferSizeMB(10.0);
             //indexWriter.SetUseCompoundFile(false);
@@ -55,14 +53,19 @@ namespace TestApp
             {
                 if (iDoc % 10 == 0)
                     Console.WriteLine(iDoc);
-                Document doc = new Document();
-                doc.add(new Field("id", DateTime.Now.ToFileTimeUtc().ToString(), Field.Store.YES, Field.Index.ANALYZED, Field.TermVector.NO));
-                doc.add(new Field("Title", GeneratePhrase(10), Field.Store.YES, Field.Index.ANALYZED, Field.TermVector.NO));
-                doc.add(new Field("Body", GeneratePhrase(40), Field.Store.YES, Field.Index.ANALYZED, Field.TermVector.NO));
+                var doc = new Document();
+                doc.add(new TextField("id", DateTime.Now.ToFileTimeUtc().ToString(CultureInfo.InvariantCulture), Field.Store.YES));
+                doc.add(new TextField("Title", GeneratePhrase(10), Field.Store.YES));
+                doc.add(new TextField("Body", GeneratePhrase(40), Field.Store.YES));
                 indexWriter.addDocument(doc);
             }
             Console.WriteLine("Total docs is {0}", indexWriter.numDocs());
-            
+
+            Console.Write("Flushing and disposing writer...");
+            // Potentially Expensive: this ensures that all writes are commited to blob storage
+            indexWriter.commit();
+            indexWriter.close();
+
             Console.WriteLine("done");
             Console.WriteLine("Hit Key to search again");
             Console.ReadKey();
@@ -73,23 +76,17 @@ namespace TestApp
                 searcher = new IndexSearcher(DirectoryReader.open(azureDirectory));
             }
             SearchForPhrase(searcher, "dog");
-            SearchForPhrase(searcher, _random.Next(32768).ToString());
-            SearchForPhrase(searcher, _random.Next(32768).ToString());
+            SearchForPhrase(searcher, Random.Next(32768).ToString(CultureInfo.InvariantCulture));
+            SearchForPhrase(searcher, Random.Next(32768).ToString(CultureInfo.InvariantCulture));
             Console.WriteLine("Hit a key to dispose and exit");
             Console.ReadKey();
-
-            Console.Write("Flushing and disposing writer...");
-            // Potentially Expensive: this ensures that all writes are commited to blob storage
-            indexWriter.commit();
-            indexWriter.close();
         }
-
 
         static void SearchForPhrase(IndexSearcher searcher, string phrase)
         {
             using (new AutoStopWatch(string.Format("Search for {0}", phrase)))
             {
-                QueryParser parser = new QueryParser(org.apache.lucene.util.Version.LUCENE_CURRENT, "Body", new StandardAnalyzer(org.apache.lucene.util.Version.LUCENE_CURRENT));
+                var parser = new QueryParser(org.apache.lucene.util.Version.LUCENE_CURRENT, "Body", new StandardAnalyzer(org.apache.lucene.util.Version.LUCENE_CURRENT));
                 Query query = parser.parse(phrase);
 
                 var hits = searcher.search(query, 100);
@@ -104,37 +101,36 @@ namespace TestApp
             }
         }
 
-        static Random _random = new Random((int)DateTime.Now.Ticks);
-        static string[] sampleTerms =
+        static readonly Random Random = new Random((int)DateTime.Now.Ticks);
+        static readonly string[] SampleTerms =
             { 
                 "dog","cat","car","horse","door","tree","chair","microsoft","apple","adobe","google","golf","linux","windows","firefox","mouse","hornet","monkey","giraffe","computer","monitor",
                 "steve","fred","lili","albert","tom","shane","gerald","chris",
                 "love","hate","scared","fast","slow","new","old"
             };
 
-        private static string GeneratePhrase(int MaxTerms)
+        private static string GeneratePhrase(int maxTerms)
         {
-            StringBuilder phrase = new StringBuilder();
-            int nWords = 2 + _random.Next(MaxTerms);
+            var phrase = new StringBuilder();
+            int nWords = 2 + Random.Next(maxTerms);
             for (int i = 0; i < nWords; i++)
             {
-                phrase.AppendFormat(" {0} {1}", sampleTerms[_random.Next(sampleTerms.Length)], _random.Next(32768).ToString());
+                phrase.AppendFormat(" {0} {1}", SampleTerms[Random.Next(SampleTerms.Length)], Random.Next(32768));
             }
             return phrase.ToString();
         }
-
     }
+
     public class AutoStopWatch : IDisposable
     {
-        private Stopwatch _stopwatch;
-        private string _message;
+        private readonly Stopwatch _stopwatch;
+        private readonly string _message;
         public AutoStopWatch(string message)
         {
             _message = message;
             Debug.WriteLine(String.Format("{0} starting ", message));
             _stopwatch = Stopwatch.StartNew();
         }
-
 
         #region IDisposable Members
         public void Dispose()
@@ -143,11 +139,8 @@ namespace TestApp
             _stopwatch.Stop();
             long ms = _stopwatch.ElapsedMilliseconds;
 
-            Debug.WriteLine(String.Format("{0} Finished {1} ms", _message, ms));
+            Debug.WriteLine("{0} Finished {1} ms", _message, ms);
         }
         #endregion
     }
-
-
 }
-
