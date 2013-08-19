@@ -1,16 +1,10 @@
-﻿//    License: Microsoft Public License (Ms-PL) 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Lucene.Net;
-using Lucene.Net.Store;
-using System.Diagnostics;
-using System.Net;
-using System.Threading;
+﻿using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
+using org.apache.lucene.store;
+using System;
+using System.Diagnostics;
 using System.IO;
-using Microsoft.WindowsAzure.Storage;
+using System.Threading;
 
 namespace Lucene.Net.Store.Azure
 {
@@ -30,7 +24,7 @@ namespace Lucene.Net.Store.Azure
         }
 
         #region Lock methods
-        override public bool IsLocked()
+        override public bool isLocked()
         {
             var blob = _azureDirectory.BlobContainer.GetBlobReferenceFromServer(_lockFile);
             try
@@ -52,7 +46,7 @@ namespace Lucene.Net.Store.Azure
             catch (StorageException webErr)
             {
                 if (_handleWebException(blob, webErr))
-                    return IsLocked();
+                    return isLocked();
             }
             /*catch (StorageClientException err)
             {
@@ -63,7 +57,7 @@ namespace Lucene.Net.Store.Azure
             return false;
         }
 
-        public override bool Obtain()
+        public override bool obtain()
         {
             var blob = _azureDirectory.BlobContainer.GetBlockBlobReference(_lockFile);
             try
@@ -91,7 +85,7 @@ namespace Lucene.Net.Store.Azure
             catch (StorageException webErr)
             {
                 if (_handleWebException(blob, webErr))
-                    return Obtain();
+                    return obtain();
             }
             /*catch (StorageClientException err)
             {
@@ -113,7 +107,7 @@ namespace Lucene.Net.Store.Azure
             }
         }
 
-        public override void Release()
+        public override void release()
         {
             Debug.Print("AzureLock:Release({0}) {1}", _lockFile, _leaseid);
             if (!String.IsNullOrEmpty(_leaseid))
@@ -144,7 +138,7 @@ namespace Lucene.Net.Store.Azure
             _leaseid = null;
         }
 
-        public override System.String ToString()
+        public System.String ToString()
         {
             return String.Format("AzureLock@{0}.{1}", _lockFile, _leaseid);
         }

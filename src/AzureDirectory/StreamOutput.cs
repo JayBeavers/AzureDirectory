@@ -1,10 +1,6 @@
-﻿//    License: Microsoft Public License (Ms-PL) 
+﻿using org.apache.lucene.store;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.IO;
-using Lucene.Net.Store;
 
 namespace Lucene.Net.Store.Azure
 {
@@ -37,23 +33,23 @@ namespace Lucene.Net.Store.Azure
 
         public override void Flush()
         {
-            Output.Flush();
+            Output.flush();
         }
 
         public override long Length
         {
-            get { return Output.Length; }
+            get { return Output.length(); }
         }
 
         public override long Position
         {
             get
             {
-                return Output.FilePointer;
+                return Output.getFilePointer();
             }
             set
             {
-                Output.Seek(value);
+                Output.seek(value);
             }
         }
 
@@ -67,15 +63,15 @@ namespace Lucene.Net.Store.Azure
             switch (origin)
             {
                 case SeekOrigin.Begin:
-                    Output.Seek(offset);
+                    Output.seek(offset);
                     break;
                 case SeekOrigin.Current:
-                    Output.Seek(Output.FilePointer + offset);
+                    Output.seek(Output.getFilePointer() + offset);
                     break;
                 case SeekOrigin.End:
                     throw new System.NotImplementedException();
             }
-            return Output.FilePointer;
+            return Output.getFilePointer();
         }
 
         public override void SetLength(long value)
@@ -85,13 +81,13 @@ namespace Lucene.Net.Store.Azure
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            Output.WriteBytes(buffer, offset, count);
+            Output.writeBytes(buffer, offset, count);
         }
 
         public override void Close()
         {
-            Output.Flush();
-            Output.Close();
+            Output.flush();
+            Output.close();
             base.Close();
         }
     }

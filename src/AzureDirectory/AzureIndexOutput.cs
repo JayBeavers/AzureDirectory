@@ -1,15 +1,17 @@
 ﻿//    License: Microsoft Public License (Ms-PL) 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Lucene.Net;
 using Lucene.Net.Store;
-using System.IO;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Threading;
 using Microsoft.WindowsAzure.Storage.Blob;
+using org.apache.lucene.store;
+using Directory = org.apache.lucene.store.Directory;
 
 
 namespace Lucene.Net.Store.Azure
@@ -25,7 +27,7 @@ namespace Lucene.Net.Store.Azure
         private IndexOutput _indexOutput;
         private Mutex _fileMutex;
         private ICloudBlob _blob;
-        public Lucene.Net.Store.Directory CacheDirectory { get { return _azureDirectory.CacheDirectory; } }
+        public Directory CacheDirectory { get { return _azureDirectory.CacheDirectory; } }
 
         public AzureIndexOutput(AzureDirectory azureDirectory, ICloudBlob blob)
         {
@@ -39,7 +41,7 @@ namespace Lucene.Net.Store.Azure
                 _name = blob.Uri.Segments[blob.Uri.Segments.Length - 1];
 
                 // create the local cache one we will operate against...
-                _indexOutput = CacheDirectory.CreateOutput(_name);
+                _indexOutput = CacheDirectory.createOutput(_name, IOContext.DEFAULT);
             }
             finally
             {
@@ -47,12 +49,12 @@ namespace Lucene.Net.Store.Azure
             }
         }
 
-        public override void Flush()
+        public override void flush()
         {
-            _indexOutput.Flush();
+            _indexOutput.flush();
         }
 
-        protected override void Dispose(bool disposing)
+        public override void close()
         {
             _fileMutex.WaitOne();
             try
@@ -60,10 +62,10 @@ namespace Lucene.Net.Store.Azure
                 string fileName = _name;
 
                 // make sure it's all written out
-                _indexOutput.Flush();
+                _indexOutput.flush();
 
-                long originalLength = _indexOutput.Length;
-                _indexOutput.Dispose();
+                long originalLength = _indexOutput.length();
+                _indexOutput.close();
 
                 Stream blobStream;
 #if COMPRESSBLOBS
@@ -73,19 +75,19 @@ namespace Lucene.Net.Store.Azure
                 {
                     // unfortunately, deflate stream doesn't allow seek, and we need a seekable stream
                     // to pass to the blob storage stuff, so we compress into a memory stream
-                    MemoryStream compressedStream = new MemoryStream();
+                    var compressedStream = new System.IO.MemoryStream();
 
                     try
                     {
-                        IndexInput indexInput = CacheDirectory.OpenInput(fileName);
+                        IndexInput indexInput = CacheDirectory.openInput(fileName, IOContext.DEFAULT);
                         using (DeflateStream compressor = new DeflateStream(compressedStream, CompressionMode.Compress, true))
                         {
                             // compress to compressedOutputStream
-                            byte[] bytes = new byte[indexInput.Length()];
-                            indexInput.ReadBytes(bytes, 0, (int)bytes.Length);
+                            byte[] bytes = new byte[indexInput.length()];
+                            indexInput.readBytes(bytes, 0, (int)bytes.Length);
                             compressor.Write(bytes, 0, (int)bytes.Length);
                         }
-                        indexInput.Close();
+                        indexInput.close();
 
                         // seek back to beginning of comrpessed stream
                         compressedStream.Seek(0, SeekOrigin.Begin);
@@ -108,7 +110,7 @@ namespace Lucene.Net.Store.Azure
                 else
 #endif
                 {
-                    blobStream = new StreamInput(CacheDirectory.OpenInput(fileName));
+                    blobStream = new StreamInput(CacheDirectory.openInput(fileName, IOContext.DEFAULT));
                 }
 
                 try
@@ -118,7 +120,6 @@ namespace Lucene.Net.Store.Azure
 
                     // set the metadata with the original index file properties
                     _blob.Metadata["CachedLength"] = originalLength.ToString();
-                    _blob.Metadata["CachedLastModified"] = CacheDirectory.FileModified(fileName).ToString();
                     _blob.SetMetadata();
 
                     Debug.WriteLine(string.Format("PUT {1} bytes to {0} in cloud", _name, blobStream.Length));
@@ -143,40 +144,34 @@ namespace Lucene.Net.Store.Azure
             }
         }
 
-        public override long Length
+        public override long length()
         {
-            get
-            {
-                return _indexOutput.Length;
-            }
+            return _indexOutput.length();
         }
 
-        public override void WriteByte(byte b)
+        public override void writeByte(byte b)
         {
-            _indexOutput.WriteByte(b);
+            _indexOutput.writeByte(b);
         }
 
-        public override void WriteBytes(byte[] b, int length)
+        public override void writeBytes(byte[] b, int length)
         {
-            _indexOutput.WriteBytes(b, length);
+            _indexOutput.writeBytes(b, length);
         }
 
-        public override void WriteBytes(byte[] b, int offset, int length)
+        public override void writeBytes(byte[] b, int offset, int length)
         {
-            _indexOutput.WriteBytes(b, offset, length);
+            _indexOutput.writeBytes(b, offset, length);
         }
 
-        public override long FilePointer
+        public override long getFilePointer()
         {
-            get
-            {
-                return _indexOutput.FilePointer;
-            }
+            return _indexOutput.getFilePointer();
         }
 
-        public override void Seek(long pos)
+        public override void seek(long pos)
         {
-            _indexOutput.Seek(pos);
+            _indexOutput.seek(pos);
         }
     }
 }

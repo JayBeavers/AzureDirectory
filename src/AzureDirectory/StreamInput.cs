@@ -1,10 +1,6 @@
-﻿//    License: Microsoft Public License (Ms-PL) 
+﻿using org.apache.lucene.store;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.IO;
-using Lucene.Net.Store;
 
 namespace Lucene.Net.Store.Azure
 {
@@ -24,26 +20,26 @@ namespace Lucene.Net.Store.Azure
         public override bool CanSeek { get { return true; ; } }
         public override bool CanWrite { get { return false; } }
         public override void Flush() { }
-        public override long Length { get { return Input.Length(); } }
+        public override long Length { get { return Input.length(); } }
 
         public override long Position
         {
-            get { return Input.FilePointer; }
-            set { Input.Seek(value); }
+            get { return Input.getFilePointer(); }
+            set { Input.seek(value); }
         }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            long pos = Input.FilePointer;
+            long pos = Input.getFilePointer();
             try
             {
-                long len = Input.Length();
+                long len = Input.length();
                 if (count > (len - pos))
                     count = (int)(len - pos);
-                Input.ReadBytes(buffer, offset, count);
+                Input.readBytes(buffer, offset, count);
             }
             catch (Exception) { }
-            return (int)(Input.FilePointer - pos);
+            return (int)(Input.getFilePointer() - pos);
         }
 
         public override long Seek(long offset, SeekOrigin origin)
@@ -51,15 +47,15 @@ namespace Lucene.Net.Store.Azure
             switch (origin)
             {
                 case SeekOrigin.Begin:
-                    Input.Seek(offset);
+                    Input.seek(offset);
                     break;
                 case SeekOrigin.Current:
-                    Input.Seek(Input.FilePointer + offset);
+                    Input.seek(Input.getFilePointer() + offset);
                     break;
                 case SeekOrigin.End:
                     throw new System.NotImplementedException();
             }
-            return Input.FilePointer;
+            return Input.getFilePointer();
         }
 
         public override void SetLength(long value)
@@ -74,7 +70,7 @@ namespace Lucene.Net.Store.Azure
 
         public override void Close()
         {
-            Input.Close();
+            Input.close();
             base.Close();
         }
     }
