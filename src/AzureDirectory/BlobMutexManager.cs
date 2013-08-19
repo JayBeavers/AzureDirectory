@@ -1,5 +1,4 @@
-﻿//    License: Microsoft Public License (Ms-PL) 
-using System;
+﻿using System;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Threading;
@@ -21,7 +20,7 @@ namespace Lucene.Net.Store.Azure
                 var security = new MutexSecurity();
                 var rule = new MutexAccessRule(worldSid, MutexRights.FullControl, AccessControlType.Allow);
                 security.AddAccessRule(rule);
-                var mutexIsNew = false;
+                bool mutexIsNew;
                 return new Mutex(false, mutexName, out mutexIsNew, security);
             }
             catch (UnauthorizedAccessException)

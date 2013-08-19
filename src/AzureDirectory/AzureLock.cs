@@ -13,8 +13,8 @@ namespace Lucene.Net.Store.Azure
     /// </summary>
     public class AzureLock : Lock
     {
-        private string _lockFile;
-        private AzureDirectory _azureDirectory;
+        private readonly string _lockFile;
+        private readonly AzureDirectory _azureDirectory;
         private string _leaseid;
 
         public AzureLock(string lockFile, AzureDirectory directory)
@@ -38,7 +38,7 @@ namespace Lucene.Net.Store.Azure
                         Debug.Print("IsLocked() : TRUE");
                         return true;
                     }
-                    blob.ReleaseLease(new AccessCondition() { LeaseId = tempLease });
+                    blob.ReleaseLease(new AccessCondition { LeaseId = tempLease });
                 }
                 Debug.Print("IsLocked() : {0}", _leaseid);
                 return String.IsNullOrEmpty(_leaseid);
@@ -69,12 +69,12 @@ namespace Lucene.Net.Store.Azure
                     Debug.Print("AzureLock:Obtain({0}): AcquireLease : {1}", _lockFile, _leaseid);
 
                     // keep the lease alive by renewing every 30 seconds
-                    long interval = (long)TimeSpan.FromSeconds(30).TotalMilliseconds;
-                    _renewTimer = new Timer((obj) =>
+                    var interval = (long)TimeSpan.FromSeconds(30).TotalMilliseconds;
+                    _renewTimer = new Timer(obj =>
                     {
                         try
                         {
-                            AzureLock al = (AzureLock)obj;
+                            var al = (AzureLock)obj;
                             al.Renew();
                         }
                         catch (Exception err) { Debug.Print(err.ToString()); }
@@ -132,13 +132,14 @@ namespace Lucene.Net.Store.Azure
             {
                 blob.BreakLease();
             }
-            catch (Exception err)
+            catch
             {
             }
+
             _leaseid = null;
         }
 
-        public System.String ToString()
+        public new String ToString()
         {
             return String.Format("AzureLock@{0}.{1}", _lockFile, _leaseid);
         }

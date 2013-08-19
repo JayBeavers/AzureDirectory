@@ -1,9 +1,4 @@
-﻿//    License: Microsoft Public License (Ms-PL) 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-//using System.IO;
+﻿using System;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Threading;
@@ -20,10 +15,10 @@ namespace Lucene.Net.Store.Azure
         private AzureDirectory _azureDirectory;
         private CloudBlobContainer _blobContainer;
         private ICloudBlob _blob;
-        private string _name;
+        private readonly string _name;
 
         private IndexInput _indexInput;
-        private Mutex _fileMutex;
+        private readonly Mutex _fileMutex;
 
         public Directory CacheDirectory { get { return _azureDirectory.CacheDirectory; } }
 
@@ -54,7 +49,7 @@ namespace Lucene.Net.Store.Azure
                     // get the deflated blob
                     _blob.DownloadToStream(deflatedStream);
 
-                    Debug.WriteLine(string.Format("GET {0} RETREIVED {1} bytes", _name, deflatedStream.Length));
+                    Debug.WriteLine("GET {0} RETREIVED {1} bytes", _name, deflatedStream.Length);
 
                     // seek back to begininng
                     deflatedStream.Seek(0, System.IO.SeekOrigin.Begin);
@@ -63,10 +58,10 @@ namespace Lucene.Net.Store.Azure
                     StreamOutput fileStream = _azureDirectory.CreateCachedOutputAsStream(fileName);
 
                     // create decompressor
-                    DeflateStream decompressor = new DeflateStream(deflatedStream, CompressionMode.Decompress);
+                    var decompressor = new DeflateStream(deflatedStream, CompressionMode.Decompress);
 
-                    byte[] bytes = new byte[65535];
-                    int nRead = 0;
+                    var bytes = new byte[65535];
+                    int nRead;
                     do
                     {
                         nRead = decompressor.Read(bytes, 0, 65535);
@@ -87,7 +82,7 @@ namespace Lucene.Net.Store.Azure
                     _blob.DownloadToStream(fileStream);
 
                     fileStream.Flush();
-                    Debug.WriteLine(string.Format("GET {0} RETREIVED {1} bytes", _name, fileStream.Length));
+                    Debug.WriteLine("GET {0} RETREIVED {1} bytes", _name, fileStream.Length);
 
                     fileStream.Close();
                 }
@@ -114,7 +109,7 @@ namespace Lucene.Net.Store.Azure
                 _azureDirectory = cloneInput._azureDirectory;
                 _blobContainer = cloneInput._blobContainer;
                 _blob = cloneInput._blob;
-                _indexInput = cloneInput._indexInput.clone() as IndexInput;
+                _indexInput = cloneInput._indexInput.clone();
             }
             catch (Exception)
             {
@@ -180,10 +175,10 @@ namespace Lucene.Net.Store.Azure
             try
             {
                 _fileMutex.WaitOne();
-                AzureIndexInput input = new AzureIndexInput(this);
-                clone = (IndexInput)input;
+                var input = new AzureIndexInput(this);
+                clone = input;
             }
-            catch (System.Exception err)
+            catch (Exception err)
             {
                 Debug.WriteLine(err.ToString());
             }
@@ -194,7 +189,5 @@ namespace Lucene.Net.Store.Azure
             Debug.Assert(clone != null);
             return clone;
         }
-
     }
 }
-

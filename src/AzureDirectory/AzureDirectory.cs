@@ -12,7 +12,7 @@ namespace Lucene.Net.Store.Azure
 {
     public class AzureDirectory : Directory
     {
-        private string _catalog;
+        private readonly string _catalog;
         private CloudBlobClient _blobClient;
         private CloudBlobContainer _blobContainer;
         private Directory _cacheDirectory;
@@ -50,10 +50,7 @@ namespace Lucene.Net.Store.Azure
             if (storageAccount == null)
                 throw new ArgumentNullException("storageAccount");
 
-            if (string.IsNullOrEmpty(catalog))
-                _catalog = "lucene";
-            else
-                _catalog = catalog.ToLower();
+            _catalog = string.IsNullOrEmpty(catalog) ? "lucene" : catalog.ToLower();
 
             _blobClient = storageAccount.CreateCloudBlobClient();
             _initCacheDirectory(cacheDirectory);
@@ -109,12 +106,12 @@ namespace Lucene.Net.Store.Azure
             else
             {
                 string cachePath = System.IO.Path.Combine(Environment.ExpandEnvironmentVariables("%temp%"), "AzureDirectory");
-                System.IO.DirectoryInfo azureDir = new System.IO.DirectoryInfo(cachePath);
+                var azureDir = new System.IO.DirectoryInfo(cachePath);
                 if (!azureDir.Exists)
                     azureDir.Create();
 
                 string catalogPath = System.IO.Path.Combine(cachePath, _catalog);
-                System.IO.DirectoryInfo catalogDir = new System.IO.DirectoryInfo(catalogPath);
+                var catalogDir = new System.IO.DirectoryInfo(catalogPath);
                 if (!catalogDir.Exists)
                     catalogDir.Create();
 
@@ -135,15 +132,15 @@ namespace Lucene.Net.Store.Azure
 
         #region DIRECTORY METHODS
         /// <summary>Returns an array of strings, one for each file in the directory. </summary>
-        public override System.String[] listAll()
+        public override String[] listAll()
         {
             var results = from blob in _blobContainer.ListBlobs()
                           select blob.Uri.AbsolutePath.Substring(blob.Uri.AbsolutePath.LastIndexOf('/') + 1);
-            return results.ToArray<string>();
+            return results.ToArray();
         }
 
         /// <summary>Returns true if a file with the given name exists. </summary>
-        public override bool fileExists(System.String name)
+        public override bool fileExists(String name)
         {
             // this always comes from the server
             try
@@ -159,11 +156,11 @@ namespace Lucene.Net.Store.Azure
         }
         
         /// <summary>Removes an existing file in the directory. </summary>
-        public override void deleteFile(System.String name)
+        public override void deleteFile(String name)
         {
             var blob = _blobContainer.GetBlockBlobReference(name);
             blob.DeleteIfExists();
-            Debug.WriteLine(String.Format("DELETE {0}/{1}", _blobContainer.Uri.ToString(), name));
+            Debug.WriteLine("DELETE {0}/{1}", _blobContainer.Uri, name);
 
             if (_cacheDirectory.fileExists(name + ".blob"))
                 _cacheDirectory.deleteFile(name + ".blob");
@@ -200,7 +197,7 @@ namespace Lucene.Net.Store.Azure
         }*/
 
         /// <summary>Returns the length of a file in the directory. </summary>
-        public override long fileLength(System.String name)
+        public override long fileLength(String name)
         {
             var blob = _blobContainer.GetBlockBlobReference(name);
             blob.FetchAttributes();
@@ -208,9 +205,11 @@ namespace Lucene.Net.Store.Azure
             // index files may be compressed so the actual length is stored in metatdata
             long blobLength;
             if (long.TryParse(blob.Metadata["CachedLength"], out blobLength))
+            {
                 return blobLength;
-            else
-                return blob.Properties.Length; // fall back to actual blob size
+            }
+
+            return blob.Properties.Length; // fall back to actual blob size
         }
 
         /// <summary>Creates a new, empty file in the directory with the given name.
@@ -229,21 +228,21 @@ namespace Lucene.Net.Store.Azure
             {
                 var blob = _blobContainer.GetBlockBlobReference(name);
                 blob.FetchAttributes();
-                AzureIndexInput input = new AzureIndexInput(this, blob);
+                var input = new AzureIndexInput(this, blob);
                 return input;
             }
-            catch (StorageException err)
+            catch (StorageException)
             {
                 throw new NoSuchFileException(name);
             }
         }
 
-        private Dictionary<string, AzureLock> _locks = new Dictionary<string, AzureLock>();
+        private readonly Dictionary<string, AzureLock> _locks = new Dictionary<string, AzureLock>();
 
         /// <summary>Construct a {@link Lock}.</summary>
         /// <param name="name">the name of the lock file
         /// </param>
-        public override Lock makeLock(System.String name)
+        public override Lock makeLock(String name)
         {
             lock (_locks)
             {
@@ -297,7 +296,7 @@ namespace Lucene.Net.Store.Azure
                     return true;
                 default:
                     return false;
-            };
+            }
         }
 #endif
         public StreamInput OpenCachedInputAsStream(string name)

@@ -69,7 +69,7 @@ namespace Lucene.Net.Store.Azure
                     Output.seek(Output.getFilePointer() + offset);
                     break;
                 case SeekOrigin.End:
-                    throw new System.NotImplementedException();
+                    throw new NotImplementedException();
             }
             return Output.getFilePointer();
         }
